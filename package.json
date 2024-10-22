@@ -1,0 +1,12 @@
+{
+  "name": "bountrip-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/quantum-coders/bountrip-api",
+  "author": "0xjesus <pdlgmcn@protonmail.com>",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@thewebchimp/primate": "^1.3.22-o1"
+  }
+}
