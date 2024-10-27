@@ -477,6 +477,213 @@ class NearService {
    * Additional methods for creating other types of transactions can be added here.
    * Ensure that these methods utilize the _createEncodedTransaction method to maintain encapsulation and avoid code repetition.
    */
+
+  //////////////// Bountrip  functions //////////////////////
+
+/**
+   * Creates an unsigned function call transaction for the create_bounty method.
+   *
+   * @param {Object} params - Parameters for the transaction.
+   * @param {string} params.networkId - NEAR network ID ('testnet' or 'mainnet').
+   * @param {string} params.sender - Sender's account ID.
+   * @param {string} params.receiver - Contract account ID.
+   * @param {Array<string>} params.prizes - Array of prize amounts in yoctoNEAR as strings.
+   *
+   * @returns {Promise<transactions.Transaction>} - Unsigned transaction object.
+   */
+  static async createBountyTransaction({ networkId, sender, receiver, prizes }) {
+    console.info('Creating create_bounty transaction with the following parameters:', {
+      networkId,
+      sender,
+      receiver,
+      prizes,
+    });
+
+    // Initialize connection
+    await NearService._initConnection(networkId);
+
+    // Calculate total prize
+    let totalPrize = BigInt(0);
+    for (let prize of prizes) {
+      totalPrize += BigInt(prize);
+    }
+    const totalPrizeString = totalPrize.toString();
+    console.info(`Total prize calculated: ${totalPrizeString} yoctoNEAR`);
+
+    // Define function call action
+    const actions = [
+      transactions.functionCall(
+        'create_bounty',
+        Buffer.from(JSON.stringify({ prizes })),
+        '300000000000000', // 300 Tgas
+        totalPrizeString // Attach total prize as deposit
+      ),
+    ];
+    console.info('Defined create_bounty function call action.');
+
+    // Create and return the unsigned transaction
+    const transaction = await NearService._createEncodedTransaction({
+      networkId,
+      sender,
+      receiver,
+      actions,
+    });
+    console.info('create_bounty transaction created successfully.');
+    return transaction;
+  }
+
+  /**
+   * Creates an unsigned function call transaction for the participate method.
+   *
+   * @param {Object} params - Parameters for the transaction.
+   * @param {string} params.networkId - NEAR network ID ('testnet' or 'mainnet').
+   * @param {string} params.sender - Sender's account ID.
+   * @param {string} params.receiver - Contract account ID.
+   * @param {number} params.bountyId - The ID of the bounty to participate in.
+   *
+   * @returns {Promise<transactions.Transaction>} - Unsigned transaction object.
+   */
+  static async participateTransaction({ networkId, sender, receiver, bountyId }) {
+    console.info('Creating participate transaction with the following parameters:', {
+      networkId,
+      sender,
+      receiver,
+      bountyId,
+    });
+
+    // Initialize connection
+    await NearService._initConnection(networkId);
+
+    // Define function call action
+    const actions = [
+      transactions.functionCall(
+        'participate',
+        Buffer.from(JSON.stringify({ bountyId })),
+        '300000000000000', // 300 Tgas
+        '0' // No deposit required
+      ),
+    ];
+    console.info('Defined participate function call action.');
+
+    // Create and return the unsigned transaction
+    const transaction = await NearService._createEncodedTransaction({
+      networkId,
+      sender,
+      receiver,
+      actions,
+    });
+    console.info('participate transaction created successfully.');
+    return transaction;
+  }
+
+  /**
+   * Creates an unsigned function call transaction for the finalize_bounty method.
+   *
+   * @param {Object} params - Parameters for the transaction.
+   * @param {string} params.networkId - NEAR network ID ('testnet' or 'mainnet').
+   * @param {string} params.sender - Sender's account ID.
+   * @param {string} params.receiver - Contract account ID.
+   * @param {number} params.bountyId - The ID of the bounty to finalize.
+   * @param {Array<string>} params.winners - Array of winner account IDs.
+   *
+   * @returns {Promise<transactions.Transaction>} - Unsigned transaction object.
+   */
+  static async finalizeBountyTransaction({ networkId, sender, receiver, bountyId, winners }) {
+    console.info('Creating finalize_bounty transaction with the following parameters:', {
+      networkId,
+      sender,
+      receiver,
+      bountyId,
+      winners,
+    });
+
+    // Initialize connection
+    await NearService._initConnection(networkId);
+
+    // Define function call action
+    const actions = [
+      transactions.functionCall(
+        'finalize_bounty',
+        Buffer.from(JSON.stringify({ bountyId, winners })),
+        '300000000000000', // 300 Tgas
+        '0' // No deposit required
+      ),
+    ];
+    console.info('Defined finalize_bounty function call action.');
+
+    // Create and return the unsigned transaction
+    const transaction = await NearService._createEncodedTransaction({
+      networkId,
+      sender,
+      receiver,
+      actions,
+    });
+    console.info('finalize_bounty transaction created successfully.');
+    return transaction;
+  }
+
+  /**
+   * Calls the view method get_bounty to retrieve bounty details.
+   *
+   * @param {Object} params - Parameters for the view function.
+   * @param {string} params.networkId - NEAR network ID ('testnet' or 'mainnet').
+   * @param {string} params.contractId - Contract account ID.
+   * @param {number} params.bountyId - The ID of the bounty to retrieve.
+   *
+   * @returns {Promise<Object>} - The bounty details.
+   */
+  static async getBounty({ networkId, contractId, bountyId }) {
+    console.info('Calling get_bounty view function with parameters:', {
+      networkId,
+      contractId,
+      bountyId,
+    });
+
+    // Initialize connection
+    await NearService._initConnection(networkId);
+
+    try {
+      const account = await NearService.nearConnection.account(contractId);
+      const bounty = await account.viewFunction(contractId, 'get_bounty', { bountyId });
+      console.info('Retrieved bounty details successfully.');
+      return bounty;
+    } catch (error) {
+      console.error(`Error calling get_bounty: ${error.message}`);
+      throw new Error(`Failed to retrieve bounty: ${error.message}`);
+    }
+  }
+
+  /**
+   * Calls the view method get_all_bounties to retrieve all bounties.
+   *
+   * @param {Object} params - Parameters for the view function.
+   * @param {string} params.networkId - NEAR network ID ('testnet' or 'mainnet').
+   * @param {string} params.contractId - Contract account ID.
+   *
+   * @returns {Promise<Array>} - An array of all bounties.
+   */
+  static async getAllBounties({ networkId, contractId }) {
+    console.info('Calling get_all_bounties view function with parameters:', {
+      networkId,
+      contractId,
+    });
+
+    // Initialize connection
+    await NearService._initConnection(networkId);
+
+    try {
+      const account = await NearService.nearConnection.account(contractId);
+      const bounties = await account.viewFunction(contractId, 'get_all_bounties', {});
+      console.info('Retrieved all bounties successfully.');
+      return bounties;
+    } catch (error) {
+      console.error(`Error calling get_all_bounties: ${error.message}`);
+      throw new Error(`Failed to retrieve bounties: ${error.message}`);
+    }
+  }
+
+
+
 }
 
 export default NearService;
