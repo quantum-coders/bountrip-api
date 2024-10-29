@@ -6,12 +6,12 @@ import 'dotenv/config';
 class AIService {
 
 	/**
-	 * Sends a message to the AI model and streams the response back to the client.
+	 * Sends a message to the AI model and processes the response.
 	 *
 	 * @param {Object} data - The data to send to the AI model.
 	 * @param {string} provider - The provider of the AI model.
-	 * @returns {Promise<Object>} - A promise that resolves to the response from the AI model.
-	 * @throws {Error} - Throws an error if there is an issue with the request or the response.
+	 * @returns {Promise<Object>} - A promise that resolves to the parsed response from the AI model.
+	 * @throws {Error} - Throws an error if there is an issue con la solicitud o la respuesta.
 	 */
 	static async sendMessage(data, provider) {
 		let {
@@ -26,12 +26,14 @@ class AIService {
 			frequency_penalty = 0.0001,
 			presence_penalty = 0,
 			stop = '',
-			tools = [],
+			tools,
 			toolChoice,
+			json_schema_name,  // Añadido json_schema_name
+			json_schema
 		} = data;
 
 		if (!model || !prompt) {
-			throw new Error('Missing required fields: ' + (!model ? 'model' : 'prompt'));
+			throw new Error('Faltan campos requeridos: ' + (!model ? 'model' : 'prompt'));
 		}
 
 		try {
@@ -42,7 +44,7 @@ class AIService {
 			console.warn("History:", history);
 			console.warn("Prompt:", prompt);
 			console.warn("Context Window:", contextWindow);
-			let reservedTokens = tools.length * 150
+			let reservedTokens = (Array.isArray(tools) && tools.length > 0) ? tools.length * 150 : 0;
 			const adjustedContent = this.adjustContent(system, history, prompt, contextWindow, reservedTokens);
 			system = adjustedContent.system;
 			history = adjustedContent.history;
@@ -67,7 +69,22 @@ class AIService {
 				stream,
 			};
 
-			if (tools && provider === 'openai' && !stream) {
+			if (json_schema) {
+				if (!json_schema_name) {
+					throw new Error('Falta el campo requerido: json_schema_name');
+				}
+				requestData.response_format = {
+					type: 'json_schema',
+					json_schema: {
+						name: json_schema_name,  // Incluir el nombre
+						schema: json_schema,
+						strict: true
+					}
+				};
+			}
+
+			// Verificar si 'tools' es un arreglo no vacío
+			if (Array.isArray(tools) && tools.length > 0 && provider === 'openai' && !stream) {
 				requestData.tools = tools;
 				requestData.tool_choice = toolChoice;
 			}
@@ -82,18 +99,22 @@ class AIService {
 
 			const axiosConfig = {headers};
 			if (stream) axiosConfig.responseType = 'stream';
+
 			return await axios.post(url, requestData, axiosConfig);
+
+
 		} catch (error) {
 			if (error.response && error.response.data) {
-				// Imprime el error de respuesta de manera detallada
+				// Imprimir el error de respuesta de manera detallada
 				console.error('Error Response:', JSON.stringify(error.response.data, null, 2));
 			} else {
-				// Imprime otros errores
+				// Imprimir otros errores
 				console.error('Error:', error.message);
 			}
-			throw new Error('Error processing the request: ' + error.message);
+			throw new Error('Error procesando la solicitud: ' + error.message);
 		}
 	}
+
 
 	/**
 	 * Retrieves model information including the provider and maximum tokens.
@@ -150,14 +171,25 @@ class AIService {
 	static solveProviderUrl(provider) {
 		let url;
 
-		// return url based on provider
+		// Return url based on provider
 		if (provider === 'openai') url = 'https://api.openai.com/v1/chat/completions';
-		if (provider === 'perplexity') url = 'https://api.perplexity.ai/chat/completions';
-		if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
+		else if (provider === 'perplexity') url = 'https://api.perplexity.ai/chat/completions';
+		else if (provider === 'groq') url = 'https://api.groq.com/openai/v1/chat/completions';
+		else throw new Error(`Unknown provider: ${provider}`);
 
 		return url;
 	}
 
+	/**
+	 * Adjusts content to fit within the context window.
+	 *
+	 * @param {string} system - The system prompt.
+	 * @param {Array} history - The conversation history.
+	 * @param {string} prompt - The user prompt.
+	 * @param {number} contextWindow - The maximum number of tokens for the context.
+	 * @param {number} reservedTokens - Tokens reserved for other purposes.
+	 * @returns {Object} - Adjusted system, history, and prompt.
+	 */
 	static adjustContent(system, history, prompt, contextWindow, reservedTokens = 100) {
 		const targetTokens = contextWindow - reservedTokens;
 		let currentTokens = this.estimateTokens([
@@ -169,7 +201,7 @@ class AIService {
 		console.info(`Starting adjustContent: currentTokens=${currentTokens}, targetTokens=${targetTokens}`);
 
 		let iteration = 0;
-		const maxIterations = 100; // Establecemos un máximo de iteraciones para evitar bucles infinitos
+		const maxIterations = 100; // Max iterations to avoid infinite loops
 
 		while (currentTokens > targetTokens) {
 			iteration++;
@@ -181,10 +213,10 @@ class AIService {
 			const tokensOver = currentTokens - targetTokens;
 			console.info(`Iteration ${iteration}: currentTokens=${currentTokens}, tokensOver=${tokensOver}, history length=${history.length}, system length=${system.length}, prompt length=${prompt.length}`);
 
-			// Calculamos el chunkSize dinámicamente
-			let chunkSize = Math.ceil(tokensOver * 0.5); // Tomamos el 50% de los tokens sobrantes como chunkSize
+			// Dynamically calculate chunkSize
+			let chunkSize = Math.ceil(tokensOver * 0.5); // Take 50% of the excess tokens as chunkSize
 
-			// Convertimos chunkSize a número de caracteres aproximado (asumiendo que un token es aproximadamente 4 caracteres)
+			// Convert chunkSize to approximate number of characters (assuming ~4 chars per token)
 			const approxCharsPerToken = 4;
 			const charsToRemove = chunkSize * approxCharsPerToken;
 
@@ -207,7 +239,7 @@ class AIService {
 				break; // Can't reduce further
 			}
 
-			// Recalculamos los tokens actuales después de los ajustes
+			// Recalculate current tokens after adjustments
 			currentTokens = this.estimateTokens([
 				{role: 'system', content: system},
 				...history,
@@ -222,6 +254,12 @@ class AIService {
 		return {system, history, prompt};
 	}
 
+	/**
+	 * Estimates the number of tokens in the messages.
+	 *
+	 * @param {Array} messages - An array of message objects.
+	 * @returns {number} - The estimated number of tokens.
+	 */
 	static estimateTokens(messages) {
 		return promptTokensEstimate({messages});
 	}

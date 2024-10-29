@@ -1,0 +1,9 @@
+### GET request to example server
+POST http://localhost:1337/ai/tags
+Content-Type: application/json
+
+{
+  "input": "I am planning to visit Paris, what are some popular attractions?"
+}
+
+###
