@@ -23,6 +23,9 @@ model User {
   created   DateTime @default(now())
   modified  DateTime @default(now())
 
+  plans    Plan[]
+  bounties Bounty[]
+
   @@map("user")
 }
 
@@ -40,4 +43,42 @@ model Attachment {
   modified   DateTime @default(now())
 
   @@map("attachment")
+}
+
+model Bounty {
+  id        Int      @id @default(autoincrement())
+  idOnChain String   @unique @map("id_on_chain")
+  idUser    Int      @map("id_user")
+  slug      String   @unique
+  title     String   @default("")
+  content   String   @default("")
+  status    String   @default("Draft")
+  type      String   @default("Bounty")
+  metas     Json?    @default("{}")
+  created   DateTime @default(now())
+  modified  DateTime @default(now())
+
+  user  User   @relation(fields: [idUser], references: [id])
+  plans Plan[]
+
+  @@map("bounty")
+}
+
+model Plan {
+  id       Int      @id @default(autoincrement())
+  idUser   Int      @map("id_user")
+  idBounty Int      @map("id_bounty")
+  slug     String   @unique
+  title    String   @default("")
+  content  String   @default("")
+  status   String   @default("Draft")
+  type     String   @default("Plan")
+  metas    Json?    @default("{}")
+  created  DateTime @default(now())
+  modified DateTime @default(now())
+
+  user   User   @relation(fields: [idUser], references: [id])
+  bounty Bounty @relation(fields: [idBounty], references: [id])
+
+  @@map("plan")
 }
