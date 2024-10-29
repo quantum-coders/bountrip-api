@@ -3,6 +3,7 @@
  * Handles the creation, participation, finalization, and querying of bounties.
  * @module NearController
  */
+import primate from '@thewebchimp/primate';
 
 import NearService from "../services/near.service.js";
 import 'dotenv/config';
@@ -12,6 +13,60 @@ import 'dotenv/config';
  * @class
  */
 class NearController {
+
+	static async store(req, res) {
+		try {
+			const {idOnChain, idNear, slug, title, content, status, type, metas} = req.body;
+
+			// Validate required fields
+			if (!idOnChain || !idNear || !slug) {
+				return res.respond({
+					data: null,
+					message: `Missing required fields: ${!idOnChain ? 'idOnChain' : !idNear ? 'idNear' : 'slug'}`,
+					statusCode: 400
+				});
+			}
+
+			const user = await primate.prisma.user.findUnique({
+				where: {idNear}
+			});
+
+			if(!user) {
+				return res.respond({
+					data: null,
+					message: 'User not found.',
+					statusCode: 404
+				});
+			}
+
+			// Create a new bounty record
+			const newBounty = await primate.prisma.bounty.create({
+				data: {
+					idOnChain,
+					idUser: user.id,
+					slug,
+					title,
+					content,
+					status: status || 'Draft',
+					type: type || 'Bounty',
+					metas: metas || {}
+				}
+			});
+
+			return res.respond({
+				data: newBounty,
+				message: 'Bounty created successfully.',
+				statusCode: 201
+			});
+		} catch (error) {
+			console.error('Error in store:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error creating bounty.',
+				statusCode: 500
+			});
+		}
+	}
 
 	static async getInteractions(req, res) {
 		try {

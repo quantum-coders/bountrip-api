@@ -28,4 +28,6 @@ router.post('/:id/participate', BountripController.participate);
 router.post('/:id/finalize', BountripController.finalizeBounty);
 
 
+router.post('/store', BountripController.store);
+
 export { router };
