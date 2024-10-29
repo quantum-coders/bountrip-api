@@ -12,6 +12,42 @@ import 'dotenv/config';
  * @class
  */
 class NearController {
+
+	static async getInteractions(req, res) {
+		try {
+			const {accountId} = req.query;
+			const networkId = process.env.NETWORK_ID;
+			const contractId = process.env.CONTRACT_ID;
+
+			if (!networkId || !contractId) {
+				return res.respond({
+					data: null,
+					message: 'Missing configuration parameters.',
+					statusCode: 500
+				});
+			}
+
+			const interactions = await NearService.getInteractions({
+				networkId,
+				contractId,
+				accountId
+			});
+
+			return res.respond({
+				data: interactions,
+				message: 'Interactions retrieved successfully.',
+				statusCode: 200
+			});
+		} catch (error) {
+			console.error('Error in getInteractions:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error retrieving interactions.',
+				statusCode: 500
+			});
+		}
+	}
+
 	/**
 	 * Creates a new bounty with specified prizes.
 	 *

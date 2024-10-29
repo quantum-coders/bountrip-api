@@ -7,6 +7,8 @@ import {
 	providers,
 } from 'near-api-js';
 
+import axios from 'axios';
+
 /**
  * @class NearService
  * @description A utility class for creating and encoding NEAR blockchain transactions.
@@ -204,49 +206,47 @@ class NearService {
 	}
 
 	static formatTransactionForResponse(transaction) {
-    try {
-        const formattedTransaction = {
-            signerId: transaction.signerId,
-            receiverId: transaction.receiverId,
-            publicKey: transaction.publicKey.toString(),
-            nonce: transaction.nonce.toString(),
-            actions: transaction.actions.map(action => {
-                // Map the action type to PascalCase
-                let actionType;
-                switch (action.enum) {
-                    case 'functionCall':
-                    case 'function_call':
-                    case 'FunctionCall':
-                        actionType = 'FunctionCall';
-                        break;
-                    // Add other action types if necessary
-                    default:
-                        throw new Error(`Unsupported action type: ${action.enum}`);
-                }
+		try {
+			const formattedTransaction = {
+				signerId: transaction.signerId,
+				receiverId: transaction.receiverId,
+				publicKey: transaction.publicKey.toString(),
+				nonce: transaction.nonce.toString(),
+				actions: transaction.actions.map(action => {
+					// Map the action type to PascalCase
+					let actionType;
+					switch (action.enum) {
+						case 'functionCall':
+						case 'function_call':
+						case 'FunctionCall':
+							actionType = 'FunctionCall';
+							break;
+						// Add other action types if necessary
+						default:
+							throw new Error(`Unsupported action type: ${action.enum}`);
+					}
 
-                return {
-                    type: actionType,
-                    params: {
-                        methodName: action.functionCall?.methodName,
-                        args: action.functionCall?.args
-                            ? JSON.parse(Buffer.from(action.functionCall.args).toString())
-                            : undefined,
-                        gas: action.functionCall?.gas.toString(),
-                        deposit: action.functionCall?.deposit.toString()
-                    }
-                };
-            }),
-            blockHash: Array.from(transaction.blockHash)
-        };
+					return {
+						type: actionType,
+						params: {
+							methodName: action.functionCall?.methodName,
+							args: action.functionCall?.args
+								? JSON.parse(Buffer.from(action.functionCall.args).toString())
+								: undefined,
+							gas: action.functionCall?.gas.toString(),
+							deposit: action.functionCall?.deposit.toString()
+						}
+					};
+				}),
+				blockHash: Array.from(transaction.blockHash)
+			};
 
-        return formattedTransaction;
-    } catch (error) {
-        console.error('Error formatting transaction:', error);
-        throw new Error('Failed to format transaction for response');
-    }
-}
-
-
+			return formattedTransaction;
+		} catch (error) {
+			console.error('Error formatting transaction:', error);
+			throw new Error('Failed to format transaction for response');
+		}
+	}
 
 
 	static async createBountyTransaction({networkId, sender, receiver, prizes}) {
@@ -425,6 +425,118 @@ class NearService {
 			throw new Error(`Failed to retrieve bounty: ${error.message}`);
 		}
 	}
+
+
+	/**
+	 * Obtiene las interacciones entre una cuenta y un contrato específico utilizando la API de NEAR Blocks.
+	 *
+	 * @param {Object} params - Parámetros para obtener las interacciones.
+	 * @param {string} params.networkId - El ID de la red NEAR ('mainnet' o 'testnet').
+	 * @param {string} params.accountId - El ID de la cuenta para la cual obtener las interacciones.
+	 * @param {string} params.contractId - El ID del contrato con el que se ha interactuado.
+	 *
+	 * @returns {Promise<Array>} - Una promesa que resuelve a un array de objetos de interacción.
+	 *
+	 * @throws {Error} - Lanza un error si falla la obtención de interacciones.
+	 */
+	static async getInteractions({networkId, accountId, contractId}) {
+		console.info('Iniciando getInteractions con parámetros:', {
+			networkId,
+			accountId,
+			contractId,
+		});
+
+		try {
+			// Obtener la clave de API desde las variables de entorno
+			const apiKey = process.env.NEAR_BLOCKS_API_KEY;
+			if (!apiKey) {
+				throw new Error('La clave de API de NEAR Blocks no está configurada.');
+			}
+
+			// Definir la URL base de la API dependiendo de la red
+			let apiBaseUrl;
+			if (networkId === 'mainnet') {
+				apiBaseUrl = 'https://api.nearblocks.io/v1';
+			} else if (networkId === 'testnet') {
+				apiBaseUrl = 'https://api-testnet.nearblocks.io/v1';
+			} else {
+				throw new Error(`networkId no soportado: ${networkId}`);
+			}
+
+			console.info(`Usando apiBaseUrl: ${apiBaseUrl}`);
+
+			// Definir los parámetros para la solicitud
+			const per_page = 25; // Como en tu ejemplo
+			let page = 1; // Página inicial para la paginación
+			let interactions = [];
+			let hasMore = true;
+
+
+			console.info(`Solicitando transacciones: page=${page}, per_page=${per_page}`);
+
+			// Hacer la solicitud GET a la API de NEAR Blocks
+			const response = await axios.get(
+				`${apiBaseUrl}/account/${accountId}/txns`,
+				{
+					headers: {
+						'Authorization': `Bearer ${apiKey}`,
+						'accept': '*/*',
+					},
+					params: {
+						page,
+						per_page,
+						order: 'desc',
+					},
+				}
+			);
+
+			console.info('Respuesta recibida de la API:', response.status);
+
+			if (response.status !== 200 || !response.data) {
+				console.error('Respuesta inválida de la API:', response.data);
+				throw new Error(`Fallo al obtener transacciones para la cuenta ${accountId}`);
+			}
+
+			// Acceder a los datos de las transacciones
+			const transactions = response.data.txns || response.data.data || response.data;
+
+			if (!transactions || !Array.isArray(transactions)) {
+				console.error('La estructura de datos de transacciones no es válida:', transactions);
+				throw new Error('La estructura de datos de transacciones no es válida.');
+			}
+
+			console.info(`Transacciones obtenidas: ${transactions.length}`);
+
+			// Filtrar transacciones donde el 'signer_account_id' o 'receiver_account_id' coincide con el 'contractId'
+			const filteredTxns = transactions.filter((txn) => {
+				return (
+					txn.signer_account_id === contractId ||
+					txn.receiver_account_id === contractId
+				);
+			});
+
+			console.info(`Transacciones filtradas encontradas: ${filteredTxns.length}`);
+
+			interactions = interactions.concat(filteredTxns);
+
+			// Verificar si hay más páginas
+			hasMore = transactions.length === per_page;
+			page += 1; // Incrementar el número de página para la siguiente iteración
+
+			console.info(`hasMore: ${hasMore}, nueva página: ${page}`);
+
+
+			console.info(
+				`Se encontraron ${interactions.length} interacciones entre ${accountId} y ${contractId}.`
+			);
+
+			return interactions;
+		} catch (error) {
+			console.error('Error al obtener las interacciones:', error.message);
+			throw new Error(`Fallo al obtener las interacciones: ${error.message}`);
+		}
+	}
+
 
 }
 

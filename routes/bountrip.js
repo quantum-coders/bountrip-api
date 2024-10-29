@@ -12,6 +12,9 @@ router.get('/creator/:creatorId', BountripController.getCreatorBounties); // Nue
 // Route to get bounties by participant
 router.get('/participant/:participantId', BountripController.getParticipantBounties); // Nueva ruta
 
+
+router.get('/interactions', BountripController.getInteractions);
+
 // Route to get details of a specific bounty
 router.get('/:id', BountripController.getBounty);
 
@@ -23,5 +26,6 @@ router.post('/:id/participate', BountripController.participate);
 
 // Route to finalize a bounty
 router.post('/:id/finalize', BountripController.finalizeBounty);
+
 
 export { router };
