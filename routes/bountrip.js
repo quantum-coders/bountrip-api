@@ -30,4 +30,8 @@ router.post('/:id/finalize', BountripController.finalizeBounty);
 
 router.post('/store', BountripController.store);
 
+
+router.put('/:id', BountripController.updateBounty);
+
+
 export { router };
