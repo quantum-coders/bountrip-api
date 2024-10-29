@@ -11,6 +11,9 @@ const router = Primate.getRouter();
 // Ruta para generar etiquetas de interés de viaje
 router.post('/tags', AIController.generateTags);
 
+// Ruta para generar descripción de un destino
+router.post('/description', AIController.generateDescription);
+
 // Ruta para generar itinerario de viaje
 router.post('/itinerary', AIController.generateItinerary);
 
