@@ -1,4 +1,4 @@
-### GET request to example server
+### Generar Etiquetas de Interés de Viaje
 POST http://localhost:1337/ai/tags
 Content-Type: application/json
 
@@ -6,4 +6,111 @@ Content-Type: application/json
   "input": "I am planning to visit Paris, what are some popular attractions?"
 }
 
-###
+### Generar Itinerario de Viaje
+POST http://localhost:1337/ai/itinerary
+Content-Type: application/json
+
+{
+  "input": "Tokyo",
+  "duration": 7,
+  "preferences": "cultural experiences, food, shopping"
+}
+
+### Estimar Presupuesto de Viaje
+POST http://localhost:1337/ai/budget
+Content-Type: application/json
+
+{
+  "destination": "New York City",
+  "duration": 5,
+  "travelStyle": "luxury"
+}
+
+### Recomendar Actividades Turísticas
+POST http://localhost:1337/ai/activities
+Content-Type: application/json
+
+{
+  "destination": "Barcelona",
+  "interests": ["art", "history", "beaches"]
+}
+
+### Sugerir Alojamiento
+POST http://localhost:1337/ai/accommodation
+Content-Type: application/json
+
+{
+  "destination": "Rome",
+  "checkIn": "2024-12-01",
+  "checkOut": "2024-12-07",
+  "preferences": "near the Colosseum, free Wi-Fi, breakfast included"
+}
+
+### Analizar Opiniones de Usuarios
+POST http://localhost:1337/ai/reviews
+Content-Type: application/json
+
+{
+  "reviews": [
+    "The hotel was fantastic! Clean rooms and friendly staff.",
+    "Great location but the service was a bit slow.",
+    "I loved the complimentary breakfast, highly recommend.",
+    "Rooms were small and the air conditioning was noisy.",
+    "Excellent experience overall, will visit again."
+  ]
+}
+
+### Obtener Detalles de Lugares
+POST http://localhost:1337/ai/place-details
+Content-Type: application/json
+
+{
+  "query": "Statue of Liberty"
+}
+
+### Generar Lista de Lugares Cercanos
+POST http://localhost:1337/ai/nearby-places
+Content-Type: application/json
+
+{
+  "location": "Times Square, New York",
+  "radius": 500,
+  "type": "restaurant"
+}
+
+### Obtener Detalles de Rutas y Transporte
+POST http://localhost:1337/ai/route-details
+Content-Type: application/json
+
+{
+  "origin": "Central Park, New York",
+  "destination": "Brooklyn Bridge, New York",
+  "mode": "walking"
+}
+
+### Generar Información de Eventos Locales
+POST http://localhost:1337/ai/local-events
+Content-Type: application/json
+
+{
+  "destination": "San Francisco",
+  "startDate": "2024-05-01",
+  "endDate": "2024-05-07"
+}
+
+### Proporcionar Información de Clima
+POST http://localhost:1337/ai/weather-forecast
+Content-Type: application/json
+
+{
+  "destination": "London",
+  "dates": ["2024-06-15", "2024-06-16", "2024-06-17"]
+}
+
+### Proporcionar Información de Accesibilidad
+POST http://localhost:1337/ai/accessibility-info
+Content-Type: application/json
+
+{
+  "places": ["Eiffel Tower", "Louvre Museum"]
+}
