@@ -1,7 +1,7 @@
 import BountripController from '../controllers/bountrip.controller.js';
-import { getRouter } from '@thewebchimp/primate';
+import { Primate } from '@thewebchimp/primate';
 
-const router = getRouter();
+const router = Primate.getRouter();
 
 // Route to get all bounties
 router.get('/', BountripController.getAllBounties);
