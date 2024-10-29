@@ -204,45 +204,50 @@ class NearService {
 	}
 
 	static formatTransactionForResponse(transaction) {
-		try {
-			// Función auxiliar para transformar BigInts y otros tipos especiales
-			const replacer = (key, value) => {
-				// Convertir BigInt a string
-				if (typeof value === 'bigint') {
-					return value.toString();
-				}
-				// Convertir Uint8Array a array regular
-				if (value instanceof Uint8Array) {
-					return Array.from(value);
-				}
-				// Mantener otros valores sin cambios
-				return value;
-			};
+    try {
+        const formattedTransaction = {
+            signerId: transaction.signerId,
+            receiverId: transaction.receiverId,
+            publicKey: transaction.publicKey.toString(),
+            nonce: transaction.nonce.toString(),
+            actions: transaction.actions.map(action => {
+                // Map the action type to PascalCase
+                let actionType;
+                switch (action.enum) {
+                    case 'functionCall':
+                    case 'function_call':
+                    case 'FunctionCall':
+                        actionType = 'FunctionCall';
+                        break;
+                    // Add other action types if necessary
+                    default:
+                        throw new Error(`Unsupported action type: ${action.enum}`);
+                }
 
-			// Crear un objeto limpio con los datos relevantes
-			const formattedTransaction = {
-				signerId: transaction.signerId,
-				receiverId: transaction.receiverId,
-				publicKey: transaction.publicKey.toString(),
-				nonce: transaction.nonce.toString(),
-				actions: transaction.actions.map(action => ({
-					type: action.enum,
-					params: {
-						methodName: action.functionCall?.methodName,
-						args: action.functionCall?.args ? JSON.parse(Buffer.from(action.functionCall.args).toString()) : undefined,
-						gas: action.functionCall?.gas.toString(),
-						deposit: action.functionCall?.deposit.toString()
-					}
-				})),
-				blockHash: Array.from(transaction.blockHash)
-			};
+                return {
+                    type: actionType,
+                    params: {
+                        methodName: action.functionCall?.methodName,
+                        args: action.functionCall?.args
+                            ? JSON.parse(Buffer.from(action.functionCall.args).toString())
+                            : undefined,
+                        gas: action.functionCall?.gas.toString(),
+                        deposit: action.functionCall?.deposit.toString()
+                    }
+                };
+            }),
+            blockHash: Array.from(transaction.blockHash)
+        };
 
-			return formattedTransaction;
-		} catch (error) {
-			console.error('Error formatting transaction:', error);
-			throw new Error('Failed to format transaction for response');
-		}
-	}
+        return formattedTransaction;
+    } catch (error) {
+        console.error('Error formatting transaction:', error);
+        throw new Error('Failed to format transaction for response');
+    }
+}
+
+
+
 
 	static async createBountyTransaction({networkId, sender, receiver, prizes}) {
 		console.info('Creating create_bounty transaction with the following parameters:', {
