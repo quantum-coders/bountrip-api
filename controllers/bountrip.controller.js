@@ -15,6 +15,27 @@ import {utils} from "near-api-js";
  */
 class NearController {
 
+	static async getLatestBounty(req, res) {
+		try {
+			const latestBounty = await NearService.getLastBountyId(
+				{
+					networkId: process.env.NETWORK_ID,
+					contractId: process.env.CONTRACT_ID
+				}
+			)
+
+			console.info("Latest bounty id is: ", latestBounty)
+			return res.respond({
+				data: {id: latestBounty},
+				message: 'Latest bounty retrieved successfully.',
+
+			});
+		} catch (e) {
+			console.error(e);
+			return res.respond({status: 400, message: e.message});
+		}
+	}
+
 	static async updateBounty(req, res) {
 		try {
 			const {idOnChain, idNear, slug, title, content, status, type, metas} = req.body;
@@ -32,7 +53,7 @@ class NearController {
 				where: {idNear}
 			});
 
-			if(!user) {
+			if (!user) {
 				return res.respond({
 					data: null,
 					message: 'User not found.',
@@ -70,58 +91,118 @@ class NearController {
 	}
 
 	static async store(req, res) {
-		try {
-			const {idOnChain, idNear, slug, title, content, status, type, metas} = req.body;
+    try {
+        const {idNear, slug, title, content, status, type, metas, idBounty} = req.body;
+        let {idOnChain} = req.body;
 
-			// Validate required fields
-			if (!idOnChain || !idNear || !slug) {
-				return res.respond({
-					data: null,
-					message: `Missing required fields: ${!idOnChain ? 'idOnChain' : !idNear ? 'idNear' : 'slug'}`,
-					statusCode: 400
-				});
-			}
+        // Validar campos requeridos
+        if (!idNear) {
+            return res.respond({
+                data: null,
+                message: 'Missing required field: idNear',
+                statusCode: 400
+            });
+        }
 
-			const user = await primate.prisma.user.findUnique({
-				where: {idNear}
-			});
+        const user = await primate.prisma.user.findUnique({
+            where: {idNear}
+        });
 
-			if(!user) {
-				return res.respond({
-					data: null,
-					message: 'User not found.',
-					statusCode: 404
-				});
-			}
+        if (!user) {
+            return res.respond({
+                data: null,
+                message: 'User not found.',
+                statusCode: 404
+            });
+        }
 
-			// Create a new bounty record
-			const newBounty = await primate.prisma.bounty.create({
-				data: {
-					idOnChain,
-					idUser: user.id,
-					slug,
-					title,
-					content,
-					status: status || 'Draft',
-					type: type || 'Bounty',
-					metas: metas || {}
-				}
-			});
+        // Intentar obtener la bounty por idOnChain
+        let bountyDb = null;
+        idOnChain = String(idOnChain);
+        console.info("idOnChain: ", idOnChain);
+        if (idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null') {
+            console.info("--------------> entra aqui??: ", idOnChain);
+            bountyDb = await primate.prisma.bounty.findUnique({
+                where: {id: parseInt(idBounty)}
+            })
+        }
 
-			return res.respond({
-				data: newBounty,
-				message: 'Bounty created successfully.',
-				statusCode: 201
-			});
-		} catch (error) {
-			console.error('Error in store:', error);
-			return res.respond({
-				data: null,
-				message: error.message || 'Error creating bounty.',
-				statusCode: 500
-			});
-		}
-	}
+        console.info("--------------> bountyDb: ", bountyDb);
+        if (bountyDb) {
+            try {
+                // Construir el objeto de actualización solo con campos que tengan valores significativos
+                const updateData = {
+                    idUser: user.id,
+                    ...(slug && slug.trim() !== '' && {slug}),
+                    ...(title && title.trim() !== '' && {title}),
+                    ...(content && content.trim() !== '' && {content}),
+                    ...(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null' && {idOnChain}),
+                    ...(status && status.trim() !== '' && {status}),
+                    ...(type && type.trim() !== '' && {type}),
+                    ...(metas && Object.keys(metas).length > 0 && {metas})
+                };
+
+                // Solo realizar el update si hay campos para actualizar
+                if (Object.keys(updateData).length > 1) { // >1 porque siempre incluimos idUser
+                    const updatedBounty = await primate.prisma.bounty.update({
+                        where: {id: parseInt(idBounty)},
+                        data: updateData
+                    });
+
+                    return res.respond({
+                        data: updatedBounty,
+                        message: 'Bounty updated successfully.',
+                        statusCode: 200
+                    });
+                } else {
+                    // Si no hay campos para actualizar, devolver el bounty existente
+                    return res.respond({
+                        data: bountyDb,
+                        message: 'No fields to update.',
+                        statusCode: 200
+                    });
+                }
+            } catch (error) {
+                console.error('Error in update:', error);
+                return res.respond({
+                    data: null,
+                    message: error.message || 'Error updating bounty.',
+                    statusCode: 500
+                });
+            }
+        }
+
+        // Si no existe el bounty, crear uno nuevo
+        const newBountyData = {
+            idOnChain: String(idOnChain),
+            idUser: user.id,
+            slug,
+            title,
+            content,
+            status: status || 'Draft',
+            type: type || 'Bounty',
+            metas: metas || {}
+        };
+
+        const newBounty = await primate.prisma.bounty.create({
+            data: newBountyData
+        });
+
+        return res.respond({
+            data: newBounty,
+            message: 'Bounty created successfully.',
+            statusCode: 201
+        });
+    } catch (error) {
+        console.error('Error in store:', error);
+        return res.respond({
+            data: null,
+            message: error.message || 'Error creating bounty.',
+            statusCode: 500
+        });
+    }
+}
+
 
 	static async getInteractions(req, res) {
 		try {
@@ -341,9 +422,9 @@ class NearController {
 				creatorId
 			});
 			const bountyData = []
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				bountyData.push(b);
 			}
 
@@ -394,9 +475,9 @@ class NearController {
 			});
 
 			const bountyData = []
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				bountyData.push(b);
 			}
 
@@ -415,12 +496,12 @@ class NearController {
 		}
 	}
 
-	static async completeBountyData(bounty){
+	static async completeBountyData(bounty) {
 		const bountyDb = await primate.prisma.bounty.findUnique({
 			where: {idOnChain: String(bounty.id)}
 		})
 
-		if(bountyDb){
+		if (bountyDb) {
 			// for each bounty prize convert yoctoNear to Near
 			bounty.prizes = bounty.prizes.map(prize => utils.format.formatNearAmount(prize));
 			bounty.totalPrize = utils.format.formatNearAmount(bounty.totalPrize);
@@ -465,9 +546,9 @@ class NearController {
 			});
 
 			const bountiesData = []
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				bountiesData.push(b);
 			}
 
@@ -499,7 +580,7 @@ class NearController {
 	 */
 	static async getBounty(req, res) {
 		try {
-			const {bountyId} = req.params;
+			const bountyId = req.params.id;
 			const contractId = process.env.CONTRACT_ID;
 			const networkId = process.env.NETWORK_ID;
 
@@ -511,23 +592,29 @@ class NearController {
 				});
 			}
 
+			const bountyDb = await primate.prisma.bounty.findUnique({
+				where: {id: parseInt(bountyId)}
+			})
+
+			console.info("--------------> bountyDb: ", bountyDb);
 			const bounty = await NearService.getBounty({
 				networkId,
 				contractId,
 				bountyId: parseInt(bountyId)
 			});
 
-			if (!bounty) {
-				return res.respond({
-					data: null,
-					message: 'Bounty not found.',
-					statusCode: 404
-				});
-			}
 
-			const b = await NearController.completeBountyData(bounty);
 			return res.respond({
-				data: b,
+				data: {
+					...bounty,
+					title: bountyDb.title,
+					content: bountyDb.content,
+					status: bountyDb.status,
+					type: bountyDb.type,
+					metas: bountyDb.metas,
+					created: bountyDb.created,
+					modified: bountyDb.modified
+				},
 				message: 'Bounty retrieved successfully.',
 				statusCode: 200
 			});

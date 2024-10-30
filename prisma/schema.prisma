@@ -11,8 +11,8 @@ model User {
   id        Int      @id @default(autoincrement())
   idNear    String   @unique @map("id_near")
   uid       String   @unique @default(cuid())
-  username  String   @unique
-  email     String   @unique
+  username  String
+  email     String
   firstname String
   lastname  String
   nicename  String
@@ -48,9 +48,9 @@ model Attachment {
 
 model Bounty {
   id        Int      @id @default(autoincrement())
-  idOnChain String   @unique @map("id_on_chain")
+  idOnChain String?  @map("id_on_chain")
   idUser    Int      @map("id_user")
-  slug      String   @unique
+  slug      String?  @unique
   title     String   @default("")
   content   String   @default("")
   status    String   @default("Draft")

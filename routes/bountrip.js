@@ -12,6 +12,7 @@ router.get('/creator/:creatorId', BountripController.getCreatorBounties); // Nue
 // Route to get bounties by participant
 router.get('/participant/:participantId', BountripController.getParticipantBounties); // Nueva ruta
 
+router.get('/latest', BountripController.getLatestBounty);
 
 router.get('/interactions', BountripController.getInteractions);
 
@@ -29,9 +30,6 @@ router.post('/:id/finalize', BountripController.finalizeBounty);
 
 
 router.post('/store', BountripController.store);
-
-
-router.put('/:id', BountripController.updateBounty);
 
 
 export { router };

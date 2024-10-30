@@ -537,6 +537,56 @@ class NearService {
 		}
 	}
 
+	/**
+	 * Obtiene el ID de la última bounty creada.
+	 *
+	 * @param {Object} params - Parámetros para obtener el ID de la última bounty.
+	 * @param {string} params.networkId - El ID de la red NEAR (ej., 'testnet', 'mainnet').
+	 * @param {string} params.contractId - El ID del contrato que gestiona las bounties.
+	 *
+	 * @returns {Promise<string|null>} - Una promesa que resuelve al ID de la última bounty o null si no hay bounties.
+	 *
+	 * @throws {Error} - Lanza un error si falla la obtención o procesamiento de las bounties.
+	 */
+	static async getLastBountyId({networkId, contractId}) {
+		console.info('Obteniendo el ID de la última bounty con los siguientes parámetros:', {
+			networkId,
+			contractId,
+		});
+
+		// Inicializa la conexión NEAR si no está ya inicializada
+		await NearService._initConnection(networkId);
+
+		try {
+			// Obtiene todas las bounties
+			const bounties = await NearService.getAllBounties({networkId, contractId});
+
+			// Verifica si hay bounties
+			if (!bounties || bounties.length === 0) {
+				console.info('No se encontraron bounties.');
+				return null;
+			}
+
+			// Asumiendo que las bounties están ordenadas por ID ascendente
+			// Si no es así, podrías necesitar ordenar el array aquí
+			const lastBounty = bounties[bounties.length - 1];
+
+			// Asegúrate de que la propiedad del ID de la bounty coincide con tu contrato
+			// Por ejemplo, podría ser 'id', 'bountyId', etc.
+			const lastBountyId = lastBounty.bountyId || lastBounty.id;
+
+			if (!lastBountyId) {
+				console.error('La última bounty no tiene un ID válido.');
+				throw new Error('La última bounty no tiene un ID válido.');
+			}
+
+			console.info(`Último ID de bounty obtenido: ${lastBountyId}`);
+			return lastBountyId;
+		} catch (error) {
+			console.error(`Error al obtener el último ID de bounty: ${error.message}`);
+			throw new Error(`Fallo al obtener el último ID de bounty: ${error.message}`);
+		}
+	}
 
 }
 
