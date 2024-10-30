@@ -16,6 +16,7 @@ router.get('/latest', BountripController.getLatestBounty);
 
 router.get('/interactions', BountripController.getInteractions);
 
+router.post('/plans', BountripController.createPlan);
 // Route to get details of a specific bounty
 router.get('/:id', BountripController.getBounty);
 

@@ -15,6 +15,64 @@ import {utils} from "near-api-js";
  */
 class NearController {
 
+	static async createPlan(req, res) {
+		try {
+			const {title, description, places, idBounty, idNear} = req.body;
+
+			const user = await primate.prisma.user.findUnique({
+				where: {idNear}
+			});
+
+			if (!user) {
+				return res.respond({
+					data: null,
+					message: 'User not found.',
+					statusCode: 404
+				});
+			}
+			// Validate required fields
+			if (!title || !description || !places || !idBounty) {
+				return res.respond({
+					data: null,
+					message: 'Missing required fields: title, description, places, idBounty',
+					statusCode: 400
+				});
+			}
+
+			// Create a new plan record
+			const newPlan = await primate.prisma.plan.create({
+				data: {
+					title,
+					content: description,
+					idBounty: parseInt(idBounty),
+					metas: {places},
+					idUser: user.id,
+					slug: title.toLowerCase().replace(/ /g, '-') + '-' + Date.now()
+				}
+			});
+
+			const bountyDb = await primate.prisma.bounty.findUnique({
+				where: {id: parseInt(idBounty)}
+			})
+			const dataResult = {
+				...newPlan,
+				bounty: bountyDb,
+			}
+			return res.respond({
+				data: dataResult,
+				message: 'Plan created successfully.',
+				statusCode: 201
+			});
+		} catch (error) {
+			console.error('Error in createPlan:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error creating plan.',
+				statusCode: 500
+			});
+		}
+	}
+
 	static async getLatestBounty(req, res) {
 		try {
 			const latestBounty = await NearService.getLastBountyId(
@@ -554,8 +612,8 @@ class NearController {
 				if (!b) continue;
 				console.info("--------------> b: ", b);
 				// check if totalPrize and prizes are BigNumbers
-/*				b.totalPrize = utils.format.formatNearAmount(b.totalPrize);
-				b.prizes = b.prizes.map(prize => utils.format.formatNearAmount(prize));*/
+				/*				b.totalPrize = utils.format.formatNearAmount(b.totalPrize);
+								b.prizes = b.prizes.map(prize => utils.format.formatNearAmount(prize));*/
 				bountiesData.push(b);
 			}
 
