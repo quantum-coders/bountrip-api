@@ -8,6 +8,8 @@ router.get('/creator/:creatorId', BountripController.getCreatorBounties);
 
 router.get('/participant/:participantId', BountripController.getParticipantBounties);
 
+router.post('/finalize-bounty', BountripController.finalizeBountyInDatabase);
+
 router.get('/latest', BountripController.getLatestBounty);
 
 router.get('/interactions', BountripController.getInteractions);

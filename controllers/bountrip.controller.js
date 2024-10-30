@@ -14,7 +14,19 @@ import {utils} from "near-api-js";
  * @class
  */
 class NearController {
-
+	static async finalizeBountyInDatabase(req, res) {
+		// receives idBounty and set status to Finished
+		const {idBounty} = req.body;
+		const bounty = await primate.prisma.bounty.update({
+			where: {id: parseInt(idBounty)},
+			data: {status: 'Finished'}
+		});
+		return res.respond({
+			data: bounty,
+			message: 'Bounty finalized successfully.',
+			statusCode: 200
+		});
+	}
 	static async createPlan(req, res) {
 		try {
 			const {title, description, places, idBounty, idNear} = req.body;
