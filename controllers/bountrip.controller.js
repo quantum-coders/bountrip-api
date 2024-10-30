@@ -676,6 +676,7 @@ class NearController {
 			return res.respond({
 				data: {
 					...bounty,
+					id: bountyDb.id,
 					title: bountyDb.title,
 					content: bountyDb.content,
 					status: bountyDb.status,
