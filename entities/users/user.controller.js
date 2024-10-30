@@ -231,6 +231,24 @@ class UserController extends PrimateController {
 			return res.respond({ status: 400, message: 'User me error: ' + e.message });
 		}
 	}
+
+	static async getBounties(req, res) {
+		try {
+			const { id } = req.params;
+			const bounties = await PrimateService.findBy('bounty', {
+				idUser: parseInt(id)
+			});
+
+			return res.respond({
+				data: bounties,
+				message: 'Bounties retrieved successfully',
+			});
+
+		} catch(e) {
+			console.error(e);
+			return res.respond({ status: 400, message: 'Error getting bounties: ' + e.message });
+		}
+	}
 }
 
 export default UserController;

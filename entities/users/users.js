@@ -19,6 +19,9 @@ router.get('/:id/avatar', UserController.avatar);
 // connect
 router.post('/connect', UserController.connect);
 
+// Get bounties
+router.get('/:id/bounties', UserController.getBounties);
+
 // ---------------------------------------------------------------------------------------------------------------------
 
 Primate.setupRoute('user', router, {
