@@ -700,6 +700,146 @@ class NearController {
 			});
 		}
 	}
+
+	/**
+	 * Retrieves all plans associated with a specific bounty ID.
+	 *
+	 * @async
+	 * @param {Object} req - Express request object
+	 * @param {Object} req.params - Request parameters
+	 * @param {number} req.params.idBounty - ID of the bounty
+	 * @param {Object} res - Express response object
+	 * @returns {Promise<Object>} Response object containing plans data or error message
+	 * @throws {Error} When required parameters are missing or invalid
+	 */
+	static async getPlansByBountyId(req, res) {
+		try {
+			const {idBounty} = req.params;
+
+			// Validar que idBounty esté presente y sea un número válido
+			if (!idBounty || isNaN(parseInt(idBounty))) {
+				return res.respond({
+					data: null,
+					message: 'Invalid or missing idBounty parameter.',
+					statusCode: 400
+				});
+			}
+
+			// Verificar que la bounty exista
+			const bounty = await primate.prisma.bounty.findUnique({
+				where: {id: parseInt(idBounty)}
+			});
+
+			if (!bounty) {
+				return res.respond({
+					data: null,
+					message: 'Bounty not found.',
+					statusCode: 404
+				});
+			}
+
+			// Obtener todos los planes asociados a la bounty
+			const plans = await primate.prisma.plan.findMany({
+				where: {idBounty: parseInt(idBounty)},
+				include: {
+					user: {
+						select: {
+							idNear: true,
+							username: true,
+							email: true
+						}
+					}
+				},
+				orderBy: {
+					created: 'desc'
+				}
+			});
+
+			return res.respond({
+				data: plans,
+				message: 'Plans retrieved successfully.',
+				statusCode: 200
+			});
+		} catch (error) {
+			console.error('Error in getPlansByBountyId:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error retrieving plans by bounty ID.',
+				statusCode: 500
+			});
+		}
+	}
+
+	/**
+	 * Retrieves all plans associated with a specific user's idNear.
+	 *
+	 * @async
+	 * @param {Object} req - Express request object
+	 * @param {Object} req.params - Request parameters
+	 * @param {string} req.params.idNear - Unique identifier of the user
+	 * @param {Object} res - Express response object
+	 * @returns {Promise<Object>} Response object containing plans data or error message
+	 * @throws {Error} When required parameters are missing or invalid
+	 */
+	static async getPlansByIdNear(req, res) {
+		try {
+			const {idNear} = req.params;
+
+			// Validar que idNear esté presente
+			if (!idNear || typeof idNear !== 'string') {
+				return res.respond({
+					data: null,
+					message: 'Invalid or missing idNear parameter.',
+					statusCode: 400
+				});
+			}
+
+			// Verificar que el usuario exista
+			const user = await primate.prisma.user.findUnique({
+				where: {idNear}
+			});
+
+			if (!user) {
+				return res.respond({
+					data: null,
+					message: 'User not found.',
+					statusCode: 404
+				});
+			}
+
+			// Obtener todos los planes asociados al usuario
+			const plans = await primate.prisma.plan.findMany({
+				where: {idUser: user.id},
+				include: {
+					bounty: {
+						select: {
+							id: true,
+							title: true,
+							status: true
+						}
+					}
+				},
+				orderBy: {
+					created: 'desc'
+				}
+			});
+
+			return res.respond({
+				data: plans,
+				message: 'Plans retrieved successfully.',
+				statusCode: 200
+			});
+		} catch (error) {
+			console.error('Error in getPlansByIdNear:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error retrieving plans by user ID.',
+				statusCode: 500
+			});
+		}
+	}
+
+
 }
 
 export default NearController;
