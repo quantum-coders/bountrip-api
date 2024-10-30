@@ -91,117 +91,117 @@ class NearController {
 	}
 
 	static async store(req, res) {
-    try {
-        const {idNear, slug, title, content, status, type, metas, idBounty} = req.body;
-        let {idOnChain} = req.body;
+		try {
+			const {idNear, slug, title, content, status, type, metas, idBounty} = req.body;
+			let {idOnChain} = req.body;
 
-        // Validar campos requeridos
-        if (!idNear) {
-            return res.respond({
-                data: null,
-                message: 'Missing required field: idNear',
-                statusCode: 400
-            });
-        }
+			// Validar campos requeridos
+			if (!idNear) {
+				return res.respond({
+					data: null,
+					message: 'Missing required field: idNear',
+					statusCode: 400
+				});
+			}
 
-        const user = await primate.prisma.user.findUnique({
-            where: {idNear}
-        });
+			const user = await primate.prisma.user.findUnique({
+				where: {idNear}
+			});
 
-        if (!user) {
-            return res.respond({
-                data: null,
-                message: 'User not found.',
-                statusCode: 404
-            });
-        }
+			if (!user) {
+				return res.respond({
+					data: null,
+					message: 'User not found.',
+					statusCode: 404
+				});
+			}
 
-        // Intentar obtener la bounty por idOnChain
-        let bountyDb = null;
-        idOnChain = String(idOnChain);
-        console.info("idOnChain: ", idOnChain);
-        if (idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null') {
-            console.info("--------------> entra aqui??: ", idOnChain);
-            bountyDb = await primate.prisma.bounty.findUnique({
-                where: {id: parseInt(idBounty)}
-            })
-        }
+			// Intentar obtener la bounty por idOnChain
+			let bountyDb = null;
+			idOnChain = String(idOnChain);
+			console.info("idOnChain: ", idOnChain);
+			if (idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null') {
+				console.info("--------------> entra aqui??: ", idOnChain);
+				bountyDb = await primate.prisma.bounty.findUnique({
+					where: {id: parseInt(idBounty)}
+				})
+			}
 
-        console.info("--------------> bountyDb: ", bountyDb);
-        if (bountyDb) {
-            try {
-                // Construir el objeto de actualización solo con campos que tengan valores significativos
-                const updateData = {
-                    idUser: user.id,
-                    ...(slug && slug.trim() !== '' && {slug}),
-                    ...(title && title.trim() !== '' && {title}),
-                    ...(content && content.trim() !== '' && {content}),
-                    ...(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null' && {idOnChain}),
-                    ...(status && status.trim() !== '' && {status}),
-                    ...(type && type.trim() !== '' && {type}),
-                    ...(metas && Object.keys(metas).length > 0 && {metas})
-                };
+			console.info("--------------> bountyDb: ", bountyDb);
+			if (bountyDb) {
+				try {
+					// Construir el objeto de actualización solo con campos que tengan valores significativos
+					const updateData = {
+						idUser: user.id,
+						...(slug && slug.trim() !== '' && {slug}),
+						...(title && title.trim() !== '' && {title}),
+						...(content && content.trim() !== '' && {content}),
+						...(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null' && {idOnChain}),
+						...(status && status.trim() !== '' && {status}),
+						...(type && type.trim() !== '' && {type}),
+						...(metas && Object.keys(metas).length > 0 && {metas})
+					};
 
-                // Solo realizar el update si hay campos para actualizar
-                if (Object.keys(updateData).length > 1) { // >1 porque siempre incluimos idUser
-                    const updatedBounty = await primate.prisma.bounty.update({
-                        where: {id: parseInt(idBounty)},
-                        data: updateData
-                    });
+					// Solo realizar el update si hay campos para actualizar
+					if (Object.keys(updateData).length > 1) { // >1 porque siempre incluimos idUser
+						const updatedBounty = await primate.prisma.bounty.update({
+							where: {id: parseInt(idBounty)},
+							data: updateData
+						});
 
-                    return res.respond({
-                        data: updatedBounty,
-                        message: 'Bounty updated successfully.',
-                        statusCode: 200
-                    });
-                } else {
-                    // Si no hay campos para actualizar, devolver el bounty existente
-                    return res.respond({
-                        data: bountyDb,
-                        message: 'No fields to update.',
-                        statusCode: 200
-                    });
-                }
-            } catch (error) {
-                console.error('Error in update:', error);
-                return res.respond({
-                    data: null,
-                    message: error.message || 'Error updating bounty.',
-                    statusCode: 500
-                });
-            }
-        }
+						return res.respond({
+							data: updatedBounty,
+							message: 'Bounty updated successfully.',
+							statusCode: 200
+						});
+					} else {
+						// Si no hay campos para actualizar, devolver el bounty existente
+						return res.respond({
+							data: bountyDb,
+							message: 'No fields to update.',
+							statusCode: 200
+						});
+					}
+				} catch (error) {
+					console.error('Error in update:', error);
+					return res.respond({
+						data: null,
+						message: error.message || 'Error updating bounty.',
+						statusCode: 500
+					});
+				}
+			}
 
-        // Si no existe el bounty, crear uno nuevo
-        const newBountyData = {
-            idOnChain: String(idOnChain),
-            idUser: user.id,
-            slug,
-            title,
-            content,
-            status: status || 'Draft',
-            type: type || 'Bounty',
-            metas: metas || {}
-        };
+			// Si no existe el bounty, crear uno nuevo
+			const newBountyData = {
+				idOnChain: String(idOnChain),
+				idUser: user.id,
+				slug,
+				title,
+				content,
+				status: status || 'Draft',
+				type: type || 'Bounty',
+				metas: metas || {}
+			};
 
-        const newBounty = await primate.prisma.bounty.create({
-            data: newBountyData
-        });
+			const newBounty = await primate.prisma.bounty.create({
+				data: newBountyData
+			});
 
-        return res.respond({
-            data: newBounty,
-            message: 'Bounty created successfully.',
-            statusCode: 201
-        });
-    } catch (error) {
-        console.error('Error in store:', error);
-        return res.respond({
-            data: null,
-            message: error.message || 'Error creating bounty.',
-            statusCode: 500
-        });
-    }
-}
+			return res.respond({
+				data: newBounty,
+				message: 'Bounty created successfully.',
+				statusCode: 201
+			});
+		} catch (error) {
+			console.error('Error in store:', error);
+			return res.respond({
+				data: null,
+				message: error.message || 'Error creating bounty.',
+				statusCode: 500
+			});
+		}
+	}
 
 
 	static async getInteractions(req, res) {
@@ -507,6 +507,8 @@ class NearController {
 			bounty.totalPrize = utils.format.formatNearAmount(bounty.totalPrize);
 			return {
 				...bounty,
+				idOnChain: bounty.id,
+				id: bountyDb.id,
 				title: bountyDb.title,
 				content: bountyDb.content,
 				status: bountyDb.status,
@@ -547,10 +549,16 @@ class NearController {
 
 			const bountiesData = []
 			for (let bounty of bounties) {
+				console.info("--------------> bounty: ", bounty);
 				const b = await NearController.completeBountyData(bounty);
 				if (!b) continue;
+				console.info("--------------> b: ", b);
+				// check if totalPrize and prizes are BigNumbers
+/*				b.totalPrize = utils.format.formatNearAmount(b.totalPrize);
+				b.prizes = b.prizes.map(prize => utils.format.formatNearAmount(prize));*/
 				bountiesData.push(b);
 			}
+
 
 			return res.respond({
 				data: bountiesData,
@@ -600,8 +608,10 @@ class NearController {
 			const bounty = await NearService.getBounty({
 				networkId,
 				contractId,
-				bountyId: parseInt(bountyId)
+				bountyId: parseInt(bountyDb.idOnChain)
 			});
+
+			console.info("--------------> bounty blockchain: ", bounty);
 
 			const prizes = bounty.prizes.map(prize => utils.format.formatNearAmount(prize));
 			const totalPrize = utils.format.formatNearAmount(bounty.totalPrize);
@@ -615,6 +625,7 @@ class NearController {
 					metas: bountyDb.metas,
 					created: bountyDb.created,
 					modified: bountyDb.modified,
+					idOnChain: bountyDb.idOnChain,
 					prizes,
 					totalPrize
 				},

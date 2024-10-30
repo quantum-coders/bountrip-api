@@ -264,7 +264,8 @@ class NearService {
 			totalPrize += BigInt(prize);
 		}
 		const totalPrizeString = totalPrize.toString();
-
+		console.info("PRIZES", yoctoPrizes);
+		console.info("Total Prize", totalPrizeString);
 		const actions = [
 			transactions.functionCall(
 				'create_bounty',
