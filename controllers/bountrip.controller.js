@@ -497,7 +497,7 @@ class NearController {
 	}
 
 	static async completeBountyData(bounty) {
-		const bountyDb = await primate.prisma.bounty.findUnique({
+		const bountyDb = await primate.prisma.bounty.findFirst({
 			where: {idOnChain: String(bounty.id)}
 		})
 
@@ -603,7 +603,8 @@ class NearController {
 				bountyId: parseInt(bountyId)
 			});
 
-
+			const prizes = bounty.prizes.map(prize => utils.format.formatNearAmount(prize));
+			const totalPrize = utils.format.formatNearAmount(bounty.totalPrize);
 			return res.respond({
 				data: {
 					...bounty,
@@ -613,7 +614,9 @@ class NearController {
 					type: bountyDb.type,
 					metas: bountyDb.metas,
 					created: bountyDb.created,
-					modified: bountyDb.modified
+					modified: bountyDb.modified,
+					prizes,
+					totalPrize
 				},
 				message: 'Bounty retrieved successfully.',
 				statusCode: 200
