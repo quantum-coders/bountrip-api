@@ -1,6 +1,8 @@
 import { PrimateService, PrimateController } from '@thewebchimp/primate';
 import UserService from '#entities/users/user.service.js';
 import queryString from 'query-string';
+import NearService from '#services/near.service.js';
+import NearController from '../../controllers/bountrip.controller.js';
 
 class UserController extends PrimateController {
 
@@ -217,7 +219,7 @@ class UserController extends PrimateController {
 			if(!user) {
 
 				user = await UserService.create({
-					idNear: idNear
+					idNear: idNear,
 				});
 			}
 
@@ -235,12 +237,39 @@ class UserController extends PrimateController {
 	static async getBounties(req, res) {
 		try {
 			const { id } = req.params;
-			const bounties = await PrimateService.findBy('bounty', {
-				idUser: parseInt(id)
+
+			const contractId = process.env.CONTRACT_ID;
+			const networkId = process.env.NETWORK_ID;
+
+			if(!networkId || !contractId) {
+				return res.respond({
+					data: null,
+					message: 'Missing configuration parameters.',
+					statusCode: 500,
+				});
+			}
+
+			// get user
+			/** @type {User} */
+			const user = await PrimateService.findById('user', id);
+			if(!user) return res.respond({ status: 404, message: 'User not found' });
+
+			const bounties = await NearService.getCreatorBounties({
+				networkId,
+				contractId,
+				creatorId: user.idNear,
 			});
 
+			const bountiesData = [];
+
+			for(const bounty of bounties) {
+				const b = await NearController.completeBountyData(bounty);
+				if(!b) continue;
+				bountiesData.push(b);
+			}
+
 			return res.respond({
-				data: bounties,
+				data: bountiesData,
 				message: 'Bounties retrieved successfully',
 			});
 
