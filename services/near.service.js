@@ -322,8 +322,19 @@ class NearService {
 		];
 
 		const transaction = await NearService._createEncodedTransaction({
-			networkId, sender, receiver, actions,
+			networkId,
+			sender,
+			receiver,
+			actions: [
+				transactions.functionCall(
+					'finalize_bounty',
+					Buffer.from(JSON.stringify({bountyId, winners})),
+					'300000000000000', // 300 Tgas
+					'0' // No deposit required
+				),
+			],
 		});
+
 		console.info('finalize_bounty transaction created successfully.');
 		return transaction;
 	}

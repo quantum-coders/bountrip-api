@@ -436,16 +436,33 @@ class NearController {
 				});
 			}
 
+			const bountyDb = await primate.prisma.bounty.findUnique({
+				where: { id: bountyId },
+			});
+
+			if(!bountyDb) {
+				return res.respond({
+					data: null,
+					message: 'Bounty not found.',
+					statusCode: 404,
+				});
+			}
+
+			const idOnChain = bountyDb.idOnChain.toString();
+
+			console.info("ID ON CHAIN IS", idOnChain);
 			const transaction = await NearService.finalizeBountyTransaction({
 				networkId,
 				sender,
 				receiver,
-				bountyId,
+				bountyId: idOnChain,
 				winners,
 			});
 
 			const formattedTransaction = NearService.formatTransactionForResponse(transaction);
 
+			// console all the oibject formattedTransaction
+			console.log("formattedTX ", JSON.stringify(formattedTransaction));
 			return res.respond({
 				data: formattedTransaction,
 				message: 'Finalize bounty transaction created successfully.',
