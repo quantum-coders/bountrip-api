@@ -35,6 +35,7 @@ model Attachment {
   slug       String   @unique
   name       String   @default("")
   attachment String   @default("")
+  url        String   @default("") @db.VarChar(255)
   mime       String   @default("")
   size       Int      @default(0)
   source     String   @default("")

@@ -4,10 +4,11 @@
  * @module NearController
  */
 import primate from '@thewebchimp/primate';
-
+import {v4 as uuidv4} from 'uuid';
 import NearService from '../services/near.service.js';
 import 'dotenv/config';
-import { utils } from 'near-api-js';
+import {utils} from 'near-api-js';
+import UploadService from "#services/upload.service.js";
 
 /**
  * Controller class for handling NEAR blockchain bounty operations.
@@ -16,10 +17,10 @@ import { utils } from 'near-api-js';
 class NearController {
 	static async finalizeBountyInDatabase(req, res) {
 		// receives idBounty and set status to Finished
-		const { idBounty } = req.body;
+		const {idBounty} = req.body;
 		const bounty = await primate.prisma.bounty.update({
-			where: { id: parseInt(idBounty) },
-			data: { status: 'Finished' },
+			where: {id: parseInt(idBounty)},
+			data: {status: 'Finished'},
 		});
 		return res.respond({
 			data: bounty,
@@ -30,13 +31,13 @@ class NearController {
 
 	static async createPlan(req, res) {
 		try {
-			const { title, description, places, idBounty, idNear } = req.body;
+			const {title, description, places, idBounty, idNear} = req.body;
 
 			const user = await primate.prisma.user.findUnique({
-				where: { idNear },
+				where: {idNear},
 			});
 
-			if(!user) {
+			if (!user) {
 				return res.respond({
 					data: null,
 					message: 'User not found.',
@@ -44,7 +45,7 @@ class NearController {
 				});
 			}
 			// Validate required fields
-			if(!title || !description || !places || !idBounty) {
+			if (!title || !description || !places || !idBounty) {
 				return res.respond({
 					data: null,
 					message: 'Missing required fields: title, description, places, idBounty',
@@ -58,14 +59,14 @@ class NearController {
 					title,
 					content: description,
 					idBounty: parseInt(idBounty),
-					metas: { places },
+					metas: {places},
 					idUser: user.id,
 					slug: title.toLowerCase().replace(/ /g, '-') + '-' + Date.now(),
 				},
 			});
 
 			const bountyDb = await primate.prisma.bounty.findUnique({
-				where: { id: parseInt(idBounty) },
+				where: {id: parseInt(idBounty)},
 			});
 			const dataResult = {
 				...newPlan,
@@ -76,7 +77,7 @@ class NearController {
 				message: 'Plan created successfully.',
 				statusCode: 201,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in createPlan:', error);
 			return res.respond({
 				data: null,
@@ -97,34 +98,34 @@ class NearController {
 
 			console.info('Latest bounty id is: ', latestBounty);
 			return res.respond({
-				data: { id: latestBounty },
+				data: {id: latestBounty},
 				message: 'Latest bounty retrieved successfully.',
 
 			});
-		} catch(e) {
+		} catch (e) {
 			console.error(e);
-			return res.respond({ status: 400, message: e.message });
+			return res.respond({status: 400, message: e.message});
 		}
 	}
 
 	static async updateBounty(req, res) {
 		try {
-			const { idOnChain, idNear, slug, title, content, status, type, metas } = req.body;
+			const {idOnChain, idNear, slug, title, content, status, type, metas} = req.body;
 
 			// Validate required fields
-			if(!idOnChain || !idNear || !slug) {
+			if (!idOnChain || !idNear || !slug) {
 				return res.respond({
 					data: null,
-					message: `Missing required fields: ${ !idOnChain ? 'idOnChain' : !idNear ? 'idNear' : 'slug' }`,
+					message: `Missing required fields: ${!idOnChain ? 'idOnChain' : !idNear ? 'idNear' : 'slug'}`,
 					statusCode: 400,
 				});
 			}
 
 			const user = await primate.prisma.user.findUnique({
-				where: { idNear },
+				where: {idNear},
 			});
 
-			if(!user) {
+			if (!user) {
 				return res.respond({
 					data: null,
 					message: 'User not found.',
@@ -134,7 +135,7 @@ class NearController {
 
 			// Create a new bounty record
 			const updatedBounty = await primate.prisma.bounty.update({
-				where: { idOnChain },
+				where: {idOnChain},
 				data: {
 					idUser: user.id,
 					slug,
@@ -151,7 +152,7 @@ class NearController {
 				message: 'Bounty updated successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in update:', error);
 			return res.respond({
 				data: null,
@@ -161,13 +162,45 @@ class NearController {
 		}
 	}
 
+	/**
+	 * Stores a new bounty or updates an existing one.
+	 *
+	 * @async
+	 * @param {Object} req - Express request object
+	 * @param {Object} req.body - Request body
+	 * @param {string} req.body.idNear - NEAR account ID of the user
+	 * @param {string} req.body.slug - Slug for the bounty
+	 * @param {string} req.body.title - Title of the bounty
+	 * @param {string} req.body.content - Content/description of the bounty
+	 * @param {string} [req.body.status] - Status of the bounty (optional)
+	 * @param {string} [req.body.type] - Type of the bounty (optional)
+	 * @param {Object} req.body.metas - Metadata for the bounty
+	 * @param {Array} req.body.metas.placePhotos - Array of place photos (optional)
+	 * @param {string} req.body.idBounty - ID of the bounty
+	 * @param {string} [req.body.idOnChain] - On-chain ID of the bounty (optional)
+	 * @param {Object} res - Express response object
+	 * @returns {Promise<Object>} Response object containing the created or updated bounty data or error message
+	 * @throws {Error} When required parameters are missing or invalid
+	 */
 	static async store(req, res) {
 		try {
-			const { idNear, slug, title, content, status, type, metas, idBounty } = req.body;
-			let { idOnChain } = req.body;
+			const {idNear, slug, title, content, status, type, metas, idBounty} = req.body;
+			let {idOnChain} = req.body;
+
+			if (metas.placePhotos && metas.placePhotos.length > 0) {
+				for (const photo of metas.placePhotos) {
+
+
+					const attachmentCreated = await UploadService.createAttachmentFromUrl(photo.url, {
+						fileName: uuidv4(),
+					});
+					photo.url = attachmentCreated.url;
+				}
+
+			}
 
 			// Validar campos requeridos
-			if(!idNear) {
+			if (!idNear) {
 				return res.respond({
 					data: null,
 					message: 'Missing required field: idNear',
@@ -176,10 +209,10 @@ class NearController {
 			}
 
 			const user = await primate.prisma.user.findUnique({
-				where: { idNear },
+				where: {idNear},
 			});
 
-			if(!user) {
+			if (!user) {
 				return res.respond({
 					data: null,
 					message: 'User not found.',
@@ -191,32 +224,32 @@ class NearController {
 			let bountyDb = null;
 			idOnChain = String(idOnChain);
 			console.info('idOnChain: ', idOnChain);
-			if(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null') {
+			if (idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null') {
 				console.info('--------------> entra aqui??: ', idOnChain);
 				bountyDb = await primate.prisma.bounty.findUnique({
-					where: { id: parseInt(idBounty) },
+					where: {id: parseInt(idBounty)},
 				});
 			}
 
 			console.info('--------------> bountyDb: ', bountyDb);
-			if(bountyDb) {
+			if (bountyDb) {
 				try {
 					// Construir el objeto de actualización solo con campos que tengan valores significativos
 					const updateData = {
 						idUser: user.id,
-						...(slug && slug.trim() !== '' && { slug }),
-						...(title && title.trim() !== '' && { title }),
-						...(content && content.trim() !== '' && { content }),
-						...(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null' && { idOnChain }),
-						...(status && status.trim() !== '' && { status }),
-						...(type && type.trim() !== '' && { type }),
-						...(metas && Object.keys(metas).length > 0 && { metas }),
+						...(slug && slug.trim() !== '' && {slug}),
+						...(title && title.trim() !== '' && {title}),
+						...(content && content.trim() !== '' && {content}),
+						...(idOnChain && idOnChain !== 'undefined' && idOnChain !== '' && idOnChain !== 'null' && {idOnChain}),
+						...(status && status.trim() !== '' && {status}),
+						...(type && type.trim() !== '' && {type}),
+						...(metas && Object.keys(metas).length > 0 && {metas}),
 					};
 
 					// Solo realizar el update si hay campos para actualizar
-					if(Object.keys(updateData).length > 1) { // >1 porque siempre incluimos idUser
+					if (Object.keys(updateData).length > 1) { // >1 porque siempre incluimos idUser
 						const updatedBounty = await primate.prisma.bounty.update({
-							where: { id: parseInt(idBounty) },
+							where: {id: parseInt(idBounty)},
 							data: updateData,
 						});
 
@@ -233,7 +266,7 @@ class NearController {
 							statusCode: 200,
 						});
 					}
-				} catch(error) {
+				} catch (error) {
 					console.error('Error in update:', error);
 					return res.respond({
 						data: null,
@@ -264,7 +297,7 @@ class NearController {
 				message: 'Bounty created successfully.',
 				statusCode: 201,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in store:', error);
 			return res.respond({
 				data: null,
@@ -276,11 +309,11 @@ class NearController {
 
 	static async getInteractions(req, res) {
 		try {
-			const { accountId } = req.query;
+			const {accountId} = req.query;
 			const networkId = process.env.NETWORK_ID;
 			const contractId = process.env.CONTRACT_ID;
 
-			if(!networkId || !contractId) {
+			if (!networkId || !contractId) {
 				return res.respond({
 					data: null,
 					message: 'Missing configuration parameters.',
@@ -299,7 +332,7 @@ class NearController {
 				message: 'Interactions retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getInteractions:', error);
 			return res.respond({
 				data: null,
@@ -324,10 +357,10 @@ class NearController {
 	 */
 	static async createBounty(req, res) {
 		try {
-			const { sender, receiver, prizes } = req.body;
+			const {sender, receiver, prizes} = req.body;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !sender || !receiver || !Array.isArray(prizes) || prizes.length === 0) {
+			if (!networkId || !sender || !receiver || !Array.isArray(prizes) || prizes.length === 0) {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide sender, receiver, and a non-empty array of prizes.',
@@ -349,7 +382,7 @@ class NearController {
 				message: 'Bounty transaction created successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in createBounty:', error);
 			return res.respond({
 				data: null,
@@ -374,10 +407,10 @@ class NearController {
 	 */
 	static async participate(req, res) {
 		try {
-			const { sender, receiver, bountyId } = req.body;
+			const {sender, receiver, bountyId} = req.body;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !sender || !receiver || typeof bountyId !== 'number') {
+			if (!networkId || !sender || !receiver || typeof bountyId !== 'number') {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide sender, receiver, and a valid bountyId.',
@@ -399,7 +432,7 @@ class NearController {
 				message: 'Participate transaction created successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in participate:', error);
 			return res.respond({
 				data: null,
@@ -425,10 +458,10 @@ class NearController {
 	 */
 	static async finalizeBounty(req, res) {
 		try {
-			const { sender, receiver, bountyId, winners } = req.body;
+			const {sender, receiver, bountyId, winners} = req.body;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !sender || !receiver || typeof bountyId !== 'number' || !Array.isArray(winners) || winners.length === 0) {
+			if (!networkId || !sender || !receiver || typeof bountyId !== 'number' || !Array.isArray(winners) || winners.length === 0) {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide sender, receiver, bountyId, and a non-empty array of winners.',
@@ -437,10 +470,10 @@ class NearController {
 			}
 
 			const bountyDb = await primate.prisma.bounty.findUnique({
-				where: { id: bountyId },
+				where: {id: bountyId},
 			});
 
-			if(!bountyDb) {
+			if (!bountyDb) {
 				return res.respond({
 					data: null,
 					message: 'Bounty not found.',
@@ -468,7 +501,7 @@ class NearController {
 				message: 'Finalize bounty transaction created successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in finalizeBounty:', error);
 			return res.respond({
 				data: null,
@@ -491,11 +524,11 @@ class NearController {
 	 */
 	static async getCreatorBounties(req, res) {
 		try {
-			const { creatorId } = req.params;
+			const {creatorId} = req.params;
 			const contractId = process.env.CONTRACT_ID;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !contractId || !creatorId) {
+			if (!networkId || !contractId || !creatorId) {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide creatorId.',
@@ -509,9 +542,9 @@ class NearController {
 				creatorId,
 			});
 			const bountyData = [];
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				bountyData.push(b);
 			}
 
@@ -520,7 +553,7 @@ class NearController {
 				message: 'Creator bounties retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getCreatorBounties:', error);
 			return res.respond({
 				data: null,
@@ -543,11 +576,11 @@ class NearController {
 	 */
 	static async getParticipantBounties(req, res) {
 		try {
-			const { participantId } = req.params;
+			const {participantId} = req.params;
 			const contractId = process.env.CONTRACT_ID;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !contractId || !participantId) {
+			if (!networkId || !contractId || !participantId) {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide participantId.',
@@ -562,9 +595,9 @@ class NearController {
 			});
 
 			const bountyData = [];
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				bountyData.push(b);
 			}
 
@@ -573,7 +606,7 @@ class NearController {
 				message: 'Participant bounties retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getParticipantBounties:', error);
 			return res.respond({
 				data: null,
@@ -585,10 +618,10 @@ class NearController {
 
 	static async completeBountyData(bounty) {
 		const bountyDb = await primate.prisma.bounty.findFirst({
-			where: { idOnChain: String(bounty.id) },
+			where: {idOnChain: String(bounty.id)},
 		});
 
-		if(bountyDb) {
+		if (bountyDb) {
 			// for each bounty prize convert yoctoNear to Near
 			bounty.prizes = bounty.prizes.map(prize => utils.format.formatNearAmount(prize));
 			bounty.totalPrize = utils.format.formatNearAmount(bounty.totalPrize);
@@ -621,7 +654,7 @@ class NearController {
 			const contractId = process.env.CONTRACT_ID;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !contractId) {
+			if (!networkId || !contractId) {
 				return res.respond({
 					data: null,
 					message: 'Missing configuration parameters.',
@@ -635,10 +668,10 @@ class NearController {
 			});
 
 			const bountiesData = [];
-			for(let bounty of bounties) {
+			for (let bounty of bounties) {
 				console.info('--------------> bounty: ', bounty);
 				const b = await NearController.completeBountyData(bounty);
-				if(!b) continue;
+				if (!b) continue;
 				console.info('--------------> b: ', b);
 				// check if totalPrize and prizes are BigNumbers
 				/*				b.totalPrize = utils.format.formatNearAmount(b.totalPrize);
@@ -651,7 +684,7 @@ class NearController {
 				message: 'All bounties retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getAllBounties:', error);
 			return res.respond({
 				data: null,
@@ -678,7 +711,7 @@ class NearController {
 			const contractId = process.env.CONTRACT_ID;
 			const networkId = process.env.NETWORK_ID;
 
-			if(!networkId || !contractId || !bountyId) {
+			if (!networkId || !contractId || !bountyId) {
 				return res.respond({
 					data: null,
 					message: 'Invalid parameters. Please provide bountyId.',
@@ -687,7 +720,7 @@ class NearController {
 			}
 
 			const bountyDb = await primate.prisma.bounty.findUnique({
-				where: { id: parseInt(bountyId) },
+				where: {id: parseInt(bountyId)},
 			});
 
 			console.info('--------------> bountyDb: ', bountyDb);
@@ -719,7 +752,7 @@ class NearController {
 				message: 'Bounty retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getBounty:', error);
 			return res.respond({
 				data: null,
@@ -742,10 +775,10 @@ class NearController {
 	 */
 	static async getPlansByBountyId(req, res) {
 		try {
-			const { idBounty } = req.params;
+			const {idBounty} = req.params;
 
 			// Validar que idBounty esté presente y sea un número válido
-			if(!idBounty || isNaN(parseInt(idBounty))) {
+			if (!idBounty || isNaN(parseInt(idBounty))) {
 				return res.respond({
 					data: null,
 					message: 'Invalid or missing idBounty parameter.',
@@ -755,10 +788,10 @@ class NearController {
 
 			// Verificar que la bounty exista
 			const bounty = await primate.prisma.bounty.findUnique({
-				where: { id: parseInt(idBounty) },
+				where: {id: parseInt(idBounty)},
 			});
 
-			if(!bounty) {
+			if (!bounty) {
 				return res.respond({
 					data: null,
 					message: 'Bounty not found.',
@@ -768,7 +801,7 @@ class NearController {
 
 			// Obtener todos los planes asociados a la bounty
 			const plans = await primate.prisma.plan.findMany({
-				where: { idBounty: parseInt(idBounty) },
+				where: {idBounty: parseInt(idBounty)},
 				include: {
 					user: {
 						select: {
@@ -788,7 +821,7 @@ class NearController {
 				message: 'Plans retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getPlansByBountyId:', error);
 			return res.respond({
 				data: null,
@@ -811,10 +844,10 @@ class NearController {
 	 */
 	static async getPlansByIdNear(req, res) {
 		try {
-			const { idNear } = req.params;
+			const {idNear} = req.params;
 
 			// Validar que idNear esté presente
-			if(!idNear || typeof idNear !== 'string') {
+			if (!idNear || typeof idNear !== 'string') {
 				return res.respond({
 					data: null,
 					message: 'Invalid or missing idNear parameter.',
@@ -824,10 +857,10 @@ class NearController {
 
 			// Verificar que el usuario exista
 			const user = await primate.prisma.user.findUnique({
-				where: { idNear },
+				where: {idNear},
 			});
 
-			if(!user) {
+			if (!user) {
 				return res.respond({
 					data: null,
 					message: 'User not found.',
@@ -837,7 +870,7 @@ class NearController {
 
 			// Obtener todos los planes asociados al usuario
 			const plans = await primate.prisma.plan.findMany({
-				where: { idUser: user.id },
+				where: {idUser: user.id},
 				include: {
 					bounty: {
 						select: {
@@ -857,7 +890,7 @@ class NearController {
 				message: 'Plans retrieved successfully.',
 				statusCode: 200,
 			});
-		} catch(error) {
+		} catch (error) {
 			console.error('Error in getPlansByIdNear:', error);
 			return res.respond({
 				data: null,
